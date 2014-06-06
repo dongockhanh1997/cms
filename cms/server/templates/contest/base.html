@@ -157,7 +157,7 @@ $(document).ready(function () {
     {% end %}
                                     </a>
                             </li>
-    {% if actual_phase == 0 %}
+    {% if actual_phase >= 0 %}
         {% for t_iter in contest.tasks %}
                             <li class="nav-header">
                                 {{ t_iter.name }}
