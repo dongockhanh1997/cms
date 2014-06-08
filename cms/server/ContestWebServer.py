@@ -609,7 +609,7 @@ class TaskDescriptionHandler(BaseHandler):
 
     """
     @tornado.web.authenticated
-    @actual_phase_required(0, 1, 2)
+    @actual_phase_required(0)
     def get(self, task_name):
         try:
             task = self.contest.get_task(task_name)
@@ -644,7 +644,7 @@ class TaskSubmissionsHandler(BaseHandler):
 
     """
     @tornado.web.authenticated
-    @actual_phase_required(0, 1, 2)
+    @actual_phase_required(0)
     def get(self, task_name):
         try:
             task = self.contest.get_task(task_name)
@@ -664,7 +664,7 @@ class TaskStatementViewHandler(FileHandler):
 
     """
     @tornado.web.authenticated
-    @actual_phase_required(0, 1, 2)
+    @actual_phase_required(0)
     def get(self, task_name, lang_code):
         try:
             task = self.contest.get_task(task_name)
@@ -690,7 +690,7 @@ class TaskAttachmentViewHandler(FileHandler):
 
     """
     @tornado.web.authenticated
-    @actual_phase_required(0, 1, 2)
+    @actual_phase_required(0)
     def get(self, task_name, filename):
         try:
             task = self.contest.get_task(task_name)
@@ -715,7 +715,7 @@ class SubmissionFileHandler(FileHandler):
 
     """
     @tornado.web.authenticated
-    @actual_phase_required(0, 1, 2)
+    @actual_phase_required(0)
     def get(self, task_name, submission_num, filename):
         try:
             task = self.contest.get_task(task_name)
@@ -1270,7 +1270,7 @@ class SubmissionStatusHandler(BaseHandler):
     refresh_cookie = False
 
     @tornado.web.authenticated
-    @actual_phase_required(0, 1, 2)
+    @actual_phase_required(0)
     def get(self, task_name, submission_num):
         try:
             task = self.contest.get_task(task_name)
@@ -1328,7 +1328,7 @@ class SubmissionDetailsHandler(BaseHandler):
     refresh_cookie = False
 
     @tornado.web.authenticated
-    @actual_phase_required(0, 1, 2)
+    @actual_phase_required(0)
     def get(self, task_name, submission_num):
         try:
             task = self.contest.get_task(task_name)
