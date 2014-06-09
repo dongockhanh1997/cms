@@ -6,6 +6,7 @@
 # Copyright © 2010-2013 Stefano Maggiolo <s.maggiolo@gmail.com>
 # Copyright © 2010-2012 Matteo Boscariol <boscarim@hotmail.com>
 # Copyright © 2013 Luca Wehrstedt <luca.wehrstedt@gmail.com>
+# Copyright © 2014 Khanh Do Ngoc <dongockhanh1997@gmail.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -37,10 +38,16 @@ from cms.db import SessionGen, Contest
 from cms.db.filecacher import FileCacher
 from cms.grading import JobException
 from cms.grading.tasktypes import get_task_type
+from cms.grading.scoretypes import get_score_type
 from cms.grading.Job import JobGroup
 
 
 logger = logging.getLogger(__name__)
+
+
+# Dummy function to mark translateble string.
+def N_(message):
+    return message
 
 
 class Worker(Service):
@@ -108,7 +115,11 @@ class Worker(Service):
             try:
                 self._ignore_job = False
 
-                for k, job in job_group.jobs.iteritems():
+                outcomes = dict((k, None)
+                        for k in job_group.jobs.keys())
+
+                for k in sorted(job_group.jobs.keys()):
+                    job = job_group.jobs[k]
                     logger.info("Starting job.",
                                 extra={"operation": job.info})
 
@@ -127,7 +138,20 @@ class Worker(Service):
                     # that we cannot index by Dataset ID here...).
                     task_type = get_task_type(job.task_type,
                                               job.task_type_parameters)
-                    task_type.execute_job(job, self.file_cacher)
+                    score_type = get_score_type(job.score_type,
+                                                job.score_type_parameters,
+                                                job.public_testcases)
+
+                    if score_type and score_type.can_skip(k, outcomes):
+                        job.success = True
+                        job.outcome = "0.0"
+                        job.text = [N_("This testcase was skipped")]
+                        job.plus = {}
+                    else:
+                        task_type.execute_job(job, self.file_cacher)
+
+                    if hasattr(job, 'outcome'):
+                        outcomes[k] = job.outcome
 
                     logger.info("Finished job.",
                                 extra={"operation": job.info})
