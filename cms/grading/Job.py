@@ -49,19 +49,27 @@ class Job(object):
     """Base class for all jobs.
 
     Input data (usually filled by ES): task_type,
-    task_type_parameters. Metadata: shard, sandboxes, info.
+    task_type_parameters, score_type, score_type_parameters.
+    Metadata: shard, sandboxes, info.
 
     """
 
     # TODO Move 'success' inside Job.
 
     def __init__(self, task_type=None, task_type_parameters=None,
+                 score_type=None, score_type_parameters=None,
+                 public_testcases=None,
                  shard=None, sandboxes=None, info=None):
         """Initialization.
 
         task_type (string): the name of the task type.
         task_type_parameters (string): the parameters for the creation
             of the correct task type.
+        score_type (string): the name of the score type.
+        score_type_parameters (string): the parameters for the creation
+            of the correct score type.
+        public_testcases ({str: bool}): for each testcase (identified by
+            its codename) a flag telling whether it's public or not
         shard (int): the shard of the Worker completing this job.
         sandboxes ([string]): the paths of the sandboxes used in the
             Worker during the execution of the job.
@@ -79,6 +87,9 @@ class Job(object):
 
         self.task_type = task_type
         self.task_type_parameters = task_type_parameters
+        self.score_type = score_type
+        self.score_type_parameters = score_type_parameters
+        self.public_testcases = public_testcases
         self.shard = shard
         self.sandboxes = sandboxes
         self.info = info
@@ -87,6 +98,9 @@ class Job(object):
         res = {
             'task_type': self.task_type,
             'task_type_parameters': self.task_type_parameters,
+            'score_type': self.score_type,
+            'score_type_parameters': self.score_type_parameters,
+            'public_testcases': self.public_testcases,
             'shard': self.shard,
             'sandboxes': self.sandboxes,
             'info': self.info,
@@ -123,6 +137,8 @@ class CompilationJob(Job):
     """
 
     def __init__(self, task_type=None, task_type_parameters=None,
+                 score_type=None, score_type_parameters=None,
+                 public_testcases=None,
                  shard=None, sandboxes=None, info=None,
                  language=None, files=None, managers=None,
                  success=None, compilation_success=None,
@@ -154,6 +170,7 @@ class CompilationJob(Job):
             executables = {}
 
         Job.__init__(self, task_type, task_type_parameters,
+                     score_type, score_type_parameters, public_testcases,
                      shard, sandboxes, info)
         self.language = language
         self.files = files
@@ -206,6 +223,8 @@ class EvaluationJob(Job):
 
     """
     def __init__(self, task_type=None, task_type_parameters=None,
+                 score_type=None, score_type_parameters=None,
+                 public_testcases=None,
                  shard=None, sandboxes=None, info=None,
                  language=None, files=None, managers=None,
                  executables=None, input=None, output=None,
@@ -251,6 +270,7 @@ class EvaluationJob(Job):
             executables = {}
 
         Job.__init__(self, task_type, task_type_parameters,
+                     score_type, score_type_parameters, public_testcases,
                      shard, sandboxes, info)
         self.language = language
         self.files = files
@@ -453,6 +473,10 @@ class JobGroup(object):
         # Job
         job.task_type = dataset.task_type
         job.task_type_parameters = dataset.task_type_parameters
+        job.score_type = dataset.score_type
+        job.score_type_parameters = dataset.score_type_parameters
+        job.public_testcases = dict((k, tc.public)
+                for k, tc in dataset.testcases.iteritems())
 
         submission_result = submission.get_result(dataset)
 

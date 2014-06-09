@@ -59,6 +59,9 @@ def get_score_type(name=None, parameters=None, public_testcases=None,
     return (ScoreType): an instance of the correct ScoreType class.
 
     """
+    if all(x is None for x in (dataset, name)):
+        return None
+
     if dataset is not None:
         if any(x is not None for x in (name, parameters, public_testcases)):
             raise ValueError("Need exactly one way to get the score type.")

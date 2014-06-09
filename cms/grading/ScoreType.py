@@ -123,6 +123,18 @@ class ScoreType(object):
         logger.error("Unimplemented method compute_score.")
         raise NotImplementedError("Please subclass this class.")
 
+    def can_skip(self, codename, outcomes):
+        """Determine whether we can skip this testcase.
+
+        codename (string): the testcase's codename.
+        outcomes ({string: string}): for each testcase (identified by
+            its codename) a string telling its outcome, or None if
+            it has not been evaluated.
+
+        return bool: default to False
+        """
+        return False
+
 
 class ScoreTypeAlone(ScoreType):
     """Intermediate class to manage tasks where the score of a
@@ -363,3 +375,134 @@ class ScoreTypeGroup(ScoreTypeAlone):
         """
         logger.error("Unimplemented method reduce.")
         raise NotImplementedError("Please subclass this class.")
+
+class ScoreTypeACM(ScoreTypeAlone):
+    """Intermediate class to manage tasks where the score of a
+    submission is accepted or not accepted. The score type parameters
+    must be a float number.
+
+    """
+    # Mark strings for localization.
+    N_("Outcome")
+    N_("Details")
+    N_("Execution time")
+    N_("Memory used")
+    N_("N/A")
+    TEMPLATE = """\
+{% from cms.grading import format_status_text %}
+{% from cms.server import format_size %}
+<table class="testcase-list">
+    <thead>
+        <tr>
+            <th>{{ _("Outcome") }}</th>
+            <th>{{ _("Details") }}</th>
+            <th>{{ _("Execution time") }}</th>
+            <th>{{ _("Memory used") }}</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for tc in details %}
+        {% if "outcome" in tc and "text" in tc %}
+            {% if tc["outcome"] == "Correct" %}
+        <tr class="correct">
+            {% elif tc["outcome"] == "Not correct" %}
+        <tr class="notcorrect">
+            {% end %}
+            <td>{{ _(tc["outcome"]) }}</td>
+            <td>{{ format_status_text(tc["text"], _) }}</td>
+            <td>
+            {% if tc["time"] is not None %}
+                {{ _("%(seconds)0.3f s") % {'seconds': tc["time"]} }}
+            {% else %}
+                {{ _("N/A") }}
+            {% end %}
+            </td>
+            <td>
+            {% if tc["memory"] is not None %}
+                {{ format_size(tc["memory"]) }}
+            {% else %}
+                {{ _("N/A") }}
+            {% end %}
+            </td>
+        {% else %}
+        <tr class="undefined">
+            <td colspan="4">
+                {{ _("N/A") }}
+            </td>
+        </tr>
+        {% end %}
+    {% end %}
+    </tbody>
+</table>"""
+
+    def max_scores(self):
+        """Compute the maximum score of a submission.
+
+        returns (float, float): maximum score overall and public.
+
+        """
+        public_score = float(self.parameters
+                if any(p for p in self.public_testcases.itervalues())
+                else 0)
+        score = float(self.parameters)
+        return score, public_score, []
+
+    def pre_compute_score(self, submission_result):
+        """Compute the score of a submission.
+        Score will be 1.0 if the submission is accepted.
+
+        """
+        # Actually, this means it didn't even compile!
+        if not submission_result.evaluated():
+            return 0.0, "[]", 0.0, "[]", json.dumps([])
+
+        # XXX Lexicographical order by codename
+        indices = sorted(self.public_testcases.keys())
+        evaluations = dict((ev.codename, ev)
+                           for ev in submission_result.evaluations)
+        testcases = []
+        public_testcases = []
+        score = 1.0
+        public_score = 0.0 if self.max_public_score == 0.0 else 1.0
+
+        for idx in indices:
+            this_score = float(evaluations[idx].outcome)
+            if this_score < 1.0:
+                this_score = 0.0
+            tc_outcome = self.get_public_outcome(this_score)
+            score = min(score, this_score)
+            testcases.append({
+                "idx": idx,
+                "outcome": tc_outcome,
+                "text": evaluations[idx].text,
+                "time": evaluations[idx].execution_time,
+                "memory": evaluations[idx].execution_memory,
+                })
+            if self.public_testcases[idx]:
+                public_score = min(public_score, this_score)
+                public_testcases.append(testcases[-1])
+            else:
+                public_testcases.append({"idx": idx})
+
+        return score, json.dumps(testcases), \
+            public_score, json.dumps(public_testcases), \
+            json.dumps([])
+
+    def get_public_outcome(self, outcome):
+        """Return a public outcome from an outcome.
+
+        outcome (float): the outcome of the submission.
+
+        return (float): the public output.
+
+        """
+        if outcome >= 1.0:
+            return N_("Correct")
+        else:
+            return N_("Not correct")
+
+    def can_skip(self, codename, outcomes):
+        """See ScoreType."""
+        return any(float(x) < 1.0
+                for x in outcomes.itervalues()
+                if x is not None)
