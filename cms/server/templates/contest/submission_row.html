@@ -114,7 +114,7 @@
         </div>
         {% end %}
     </td>
-{% if tokens_contest != 0 and tokens_tasks != 0 %}
+{% if actual_phase == 0 and tokens_contest != 0 and tokens_tasks != 0 %}
     <td class="token">
         {% if s.token is not None %}
         <a class="btn disabled">{{ _("Played") }}</a>

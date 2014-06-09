@@ -8,6 +8,7 @@
 # Copyright © 2012-2014 Luca Wehrstedt <luca.wehrstedt@gmail.com>
 # Copyright © 2013 Bernard Blackham <bernard@largestprime.net>
 # Copyright © 2014 Artem Iglikov <artem.iglikov@gmail.com>
+# Copyright © 2014 Khanh Do Ngoc <dongockhanh1997@gmail.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -609,7 +610,7 @@ class TaskDescriptionHandler(BaseHandler):
 
     """
     @tornado.web.authenticated
-    @actual_phase_required(0)
+    @actual_phase_required(0, 1, 2)
     def get(self, task_name):
         try:
             task = self.contest.get_task(task_name)
@@ -644,7 +645,7 @@ class TaskSubmissionsHandler(BaseHandler):
 
     """
     @tornado.web.authenticated
-    @actual_phase_required(0)
+    @actual_phase_required(0, 1, 2)
     def get(self, task_name):
         try:
             task = self.contest.get_task(task_name)
@@ -664,7 +665,7 @@ class TaskStatementViewHandler(FileHandler):
 
     """
     @tornado.web.authenticated
-    @actual_phase_required(0)
+    @actual_phase_required(0, 1, 2)
     def get(self, task_name, lang_code):
         try:
             task = self.contest.get_task(task_name)
@@ -690,7 +691,7 @@ class TaskAttachmentViewHandler(FileHandler):
 
     """
     @tornado.web.authenticated
-    @actual_phase_required(0)
+    @actual_phase_required(0, 1, 2)
     def get(self, task_name, filename):
         try:
             task = self.contest.get_task(task_name)
@@ -715,7 +716,7 @@ class SubmissionFileHandler(FileHandler):
 
     """
     @tornado.web.authenticated
-    @actual_phase_required(0)
+    @actual_phase_required(0, 1, 2)
     def get(self, task_name, submission_num, filename):
         try:
             task = self.contest.get_task(task_name)
@@ -1270,7 +1271,7 @@ class SubmissionStatusHandler(BaseHandler):
     refresh_cookie = False
 
     @tornado.web.authenticated
-    @actual_phase_required(0)
+    @actual_phase_required(0, 1, 2)
     def get(self, task_name, submission_num):
         try:
             task = self.contest.get_task(task_name)
@@ -1328,7 +1329,7 @@ class SubmissionDetailsHandler(BaseHandler):
     refresh_cookie = False
 
     @tornado.web.authenticated
-    @actual_phase_required(0)
+    @actual_phase_required(0, 1, 2)
     def get(self, task_name, submission_num):
         try:
             task = self.contest.get_task(task_name)
