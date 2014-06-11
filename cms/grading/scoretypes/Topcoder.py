@@ -24,8 +24,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import json
-
 from cms.grading.ScoreType import ScoreTypeACM
 from cmscommon.datetime import make_timestamp
 
@@ -45,7 +43,7 @@ class Topcoder(ScoreTypeACM):
 
         """
         score, testcases, public_score, public_testcases, tmp = \
-                self.pre_compute_score(submission_result)
+            self.pre_compute_score(submission_result)
         submission = submission_result.submission
         user = submission.user
         contest = user.contest
@@ -61,7 +59,7 @@ class Topcoder(ScoreTypeACM):
             coding_time = submission_time - starting_time
             total_time = ending_time - starting_time
         multipler = 0.3 + 0.7 * (total_time ** 2) \
-                / (10 * (coding_time ** 2) + (total_time ** 2))
+            / (10 * (coding_time ** 2) + (total_time ** 2))
         score *= self.parameters * multipler
         public_score *= self.parameters * multipler
         return score, testcases, public_score, public_testcases, tmp
