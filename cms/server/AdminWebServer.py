@@ -1350,19 +1350,18 @@ class AddTestcasesHandler(BaseHandler):
                 tests = dict()
                 # Match input/output file names to testcases' codenames.
                 for filename in archive_zfp.namelist():
-                    match = input_re.match(filename)
-                    if match:
-                        codename = match.group(1)
+                    match_input = input_re.match(filename)
+                    match_output = output_re.match(filename)
+                    if match_output:
+                        codename = match_output.group(1)
+                        if not codename in tests:
+                            tests[codename] = [None, None]
+                        tests[codename][1] = filename
+                    elif match_input:
+                        codename = match_input.group(1)
                         if not codename in tests:
                             tests[codename] = [None, None]
                         tests[codename][0] = filename
-                    else:
-                        match = output_re.match(filename)
-                        if match:
-                            codename = match.group(1)
-                            if not codename in tests:
-                                tests[codename] = [None, None]
-                            tests[codename][1] = filename
 
                 skipped_tc = []
                 overwritten_tc = []
