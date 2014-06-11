@@ -26,6 +26,7 @@ from __future__ import unicode_literals
 
 from cms.grading.ScoreType import ScoreTypeGroup
 
+
 # Dummy function to mark translatable string.
 def N_(message):
     return message
@@ -95,5 +96,5 @@ class SmartGroupMin(ScoreTypeGroup):
         max_outcome = subtask_outcomes[subtask]
         if len(parameters) > 3:
             max_outcome = min(max_outcome, *(subtask_outcomes[x]
-                    for x in parameters[3] if x < subtask))
+                              for x in parameters[3] if x < subtask))
         return not full_judge and max_outcome <= 0.0

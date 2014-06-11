@@ -377,6 +377,7 @@ class ScoreTypeGroup(ScoreTypeAlone):
         logger.error("Unimplemented method reduce.")
         raise NotImplementedError("Please subclass this class.")
 
+
 class ScoreTypeACM(ScoreTypeAlone):
     """Intermediate class to manage tasks where the score of a
     submission is accepted or not accepted. The score type parameters
@@ -443,8 +444,9 @@ class ScoreTypeACM(ScoreTypeAlone):
 
         """
         public_score = float(self.parameters
-                if any(p for p in self.public_testcases.itervalues())
-                else 0)
+                             if any(p for p in
+                                    self.public_testcases.itervalues())
+                             else 0)
         score = float(self.parameters)
         return score, public_score, []
 
@@ -505,5 +507,5 @@ class ScoreTypeACM(ScoreTypeAlone):
     def can_skip(self, codename, outcomes):
         """See ScoreType."""
         return any(float(x) < 1.0
-                for x in outcomes.itervalues()
-                if x is not None)
+                   for x in outcomes.itervalues()
+                   if x is not None)

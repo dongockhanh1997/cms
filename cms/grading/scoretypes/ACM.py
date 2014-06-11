@@ -24,8 +24,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import json
-
 from cms.grading.ScoreType import ScoreTypeACM
 
 
@@ -44,7 +42,7 @@ class ACM(ScoreTypeACM):
 
         """
         score, testcases, public_score, public_testcases, tmp = \
-                self.pre_compute_score(submission_result)
+            self.pre_compute_score(submission_result)
         score *= self.parameters
         public_score *= self.parameters
         return score, testcases, public_score, public_testcases, tmp
