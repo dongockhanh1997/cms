@@ -33,14 +33,12 @@ class Topcoder(ScoreTypeACM):
     if it is accepted or 0 otherwise.
 
     """
-    def compute_score(self, submission_result):
-        """ Compute the score of a submission.
+
+    def get_time(self, submission_result):
+        """ Returns (float, float): (Time to code solution, Contest length)
 
         """
-        score, testcases, public_score, public_testcases, tmp = \
-            self.pre_compute_score(submission_result)
         submission = submission_result.submission
-        dataset = submission_result.dataset
         user = submission.user
         contest = user.contest
         submission_time = make_timestamp(submission.timestamp)
@@ -54,6 +52,17 @@ class Topcoder(ScoreTypeACM):
             ending_time = make_timestamp(contest.stop)
             coding_time = submission_time - starting_time
             total_time = ending_time - starting_time
+        return coding_time, total_time
+
+    def previous_submission_count(self, submission_result):
+        """ Return (int): the number of previous submission
+        which compilation was succeeded.
+
+        """
+        submission = submission_result.submission
+        user = submission.user
+        dataset = submission_result.dataset
+        submission_time = make_timestamp(submission.timestamp)
         previous_submission = 0
         for other in user.submissions:
             if other.task_id == submission.task_id and \
@@ -62,12 +71,25 @@ class Topcoder(ScoreTypeACM):
                     pass
                 if other.get_result_or_create(dataset).compilation_succeeded():
                     previous_submission += 1
-                    if previous_submission == 7:
-                        break
+        return previous_submission
+
+    def compute_score(self, submission_result):
+        """ Compute the score of a submission.
+
+        """
+        score, testcases, public_score, public_testcases, tmp = \
+            self.pre_compute_score(submission_result)
+        coding_time, total_time = self.get_time(submission_result)
+        previous_submision = self.previous_submission_count(submission_result)
         multipler = 0.3 + 0.7 * (total_time ** 2) \
             / (10 * (coding_time ** 2) + (total_time ** 2))
-        multipler *= 1 - previous_submission / 10.0
-        multipler = max(multipler, 0.3)
-        score *= self.parameters * multipler
-        public_score *= self.parameters * multipler
+        max_score = self.parameters
+        penalty = max_score / 10.0 * previous_submision
+        min_score = max_score * 0.3
+        if score > 0:
+            score = score * max_score * multipler - penalty
+            score = max(score, min_score)
+        if public_score > 0:
+            public_score = public_score * max_score * multipler - penalty
+            public_score = max(public_score, min_score)
         return score, testcases, public_score, public_testcases, tmp
