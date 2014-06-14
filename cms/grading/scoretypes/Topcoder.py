@@ -28,11 +28,6 @@ from cms.grading.ScoreType import ScoreTypeACM
 from cmscommon.datetime import make_timestamp
 
 
-# Dummy function to mark translatable string.
-def N_(message):
-    return message
-
-
 class Topcoder(ScoreTypeACM):
     """The score of a submission is the integer parameter
     if it is accepted or 0 otherwise.
@@ -45,6 +40,7 @@ class Topcoder(ScoreTypeACM):
         score, testcases, public_score, public_testcases, tmp = \
             self.pre_compute_score(submission_result)
         submission = submission_result.submission
+        dataset = submission_result.dataset
         user = submission.user
         contest = user.contest
         submission_time = make_timestamp(submission.timestamp)
@@ -58,8 +54,20 @@ class Topcoder(ScoreTypeACM):
             ending_time = make_timestamp(contest.stop)
             coding_time = submission_time - starting_time
             total_time = ending_time - starting_time
+        previous_submission = 0
+        for other in user.submissions:
+            if other.task_id == submission.task_id and \
+                    make_timestamp(other.timestamp) < submission_time:
+                while not other.get_result_or_create(dataset).compiled():
+                    pass
+                if other.get_result_or_create(dataset).compilation_succeeded():
+                    previous_submission += 1
+                    if previous_submission == 7:
+                        break
         multipler = 0.3 + 0.7 * (total_time ** 2) \
             / (10 * (coding_time ** 2) + (total_time ** 2))
+        multipler *= 1 - previous_submission / 10.0
+        multipler = max(multipler, 0.3)
         score *= self.parameters * multipler
         public_score *= self.parameters * multipler
         return score, testcases, public_score, public_testcases, tmp
