@@ -63,6 +63,8 @@ __all__ = [
     # usertest
     "UserTest", "UserTestFile", "UserTestManager", "UserTestResult",
     "UserTestExecutable",
+    # printjob
+    "PrintJob",
     # fsobject
     "FSObject",
     # init
@@ -70,13 +72,14 @@ __all__ = [
     # drop
     "drop_db",
     # util
-    "get_contest_list", "is_contest_id", "ask_for_contest",
-    ]
+    "test_db_connection", "get_contest_list", "is_contest_id",
+    "ask_for_contest",
+]
 
 
 # Instantiate or import these objects.
 
-version = 11
+version = 13
 
 
 engine = create_engine(config.database, echo=config.database_debug,
@@ -96,12 +99,14 @@ from .submission import Submission, File, Token, SubmissionResult, \
     Executable, Evaluation
 from .usertest import UserTest, UserTestFile, UserTestManager, \
     UserTestResult, UserTestExecutable
+from .printjob import PrintJob
 from .fsobject import FSObject
 
 from .init import init_db
 from .drop import drop_db
 
-from .util import get_contest_list, is_contest_id, ask_for_contest
+from .util import test_db_connection, get_contest_list, is_contest_id, \
+    ask_for_contest
 
 
 configure_mappers()

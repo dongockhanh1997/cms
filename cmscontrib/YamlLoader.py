@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Contest Management System - http://cms-dev.github.io/
-# Copyright © 2010-2013 Giovanni Mascellani <mascellani@poisson.phc.unipi.it>
+# Copyright © 2010-2014 Giovanni Mascellani <mascellani@poisson.phc.unipi.it>
 # Copyright © 2010-2012 Stefano Maggiolo <s.maggiolo@gmail.com>
 # Copyright © 2010-2012 Matteo Boscariol <boscarim@hotmail.com>
 # Copyright © 2013-2014 Luca Wehrstedt <luca.wehrstedt@gmail.com>
@@ -32,7 +32,7 @@ import sys
 import yaml
 from datetime import timedelta
 
-from cms import LANGUAGES
+from cms import LANGUAGES, LANGUAGE_TO_HEADER_EXT_MAP
 from cmscommon.datetime import make_datetime
 from cms.db import Contest, User, Task, Statement, Attachment, \
     SubmissionFormatElement, Dataset, Manager, Testcase
@@ -264,8 +264,8 @@ class YamlLoader(Loader):
             for lang in LANGUAGES:
                 files.append(os.path.join(path, "sol", "grader.%s" % lang))
             for other_filename in os.listdir(os.path.join(path, "sol")):
-                if other_filename.endswith('.h') or \
-                        other_filename.endswith('lib.pas'):
+                if any(other_filename.endswith(header)
+                       for header in LANGUAGE_TO_HEADER_EXT_MAP.itervalues()):
                     files.append(os.path.join(path, "sol", other_filename))
 
         # Yaml
@@ -476,8 +476,8 @@ class YamlLoader(Loader):
                     logger.warning("Grader for language %s not found " % lang)
             # Read managers with other known file extensions
             for other_filename in os.listdir(os.path.join(task_path, "sol")):
-                if other_filename.endswith('.h') or \
-                        other_filename.endswith('lib.pas'):
+                if any(other_filename.endswith(header)
+                       for header in LANGUAGE_TO_HEADER_EXT_MAP.itervalues()):
                     digest = self.file_cacher.put_file_from_path(
                         os.path.join(task_path, "sol", other_filename),
                         "Manager %s for task %s" % (other_filename, name))
@@ -516,29 +516,30 @@ class YamlLoader(Loader):
                     splitted = line.split('#', 1)
 
                     if len(splitted) == 1:
-                        # This line represents a testcase, otherwise it's
-                        # just a blank
+                        # This line represents a testcase, otherwise
+                        # it's just a blank
                         if splitted[0] != '':
                             testcases += 1
 
                     else:
                         testcase, comment = splitted
-                        testcase_detected = False
-                        subtask_detected = False
-                        if testcase.strip() != '':
-                            testcase_detected = True
+                        testcase = testcase.strip()
                         comment = comment.strip()
-                        if comment.startswith('ST:'):
-                            subtask_detected = True
+                        testcase_detected = testcase != ''
+                        copy_testcase_detected = comment.startswith("COPY:")
+                        subtask_detected = comment.startswith('ST:')
 
-                        if testcase_detected and subtask_detected:
-                            raise Exception("No testcase and subtask in the"
-                                            " same line allowed")
+                        flags = [testcase_detected,
+                                 copy_testcase_detected,
+                                 subtask_detected]
+                        if len([x for x in flags if x]) > 1:
+                            raise Exception("No testcase and command in"
+                                            " the same line allowed")
 
                         # This line represents a testcase and contains a
                         # comment, but the comment doesn't start a new
                         # subtask
-                        if testcase_detected:
+                        if testcase_detected or copy_testcase_detected:
                             testcases += 1
 
                         # This line starts a new subtask
@@ -619,6 +620,15 @@ class YamlLoader(Loader):
                         else:
                             logger.warning("Stub for language %s not "
                                            "found." % lang)
+                    for other_filename in os.listdir(os.path.join(task_path,
+                                                                  "sol")):
+                        if any(other_filename.endswith(header) for header in
+                               LANGUAGE_TO_HEADER_EXT_MAP.itervalues()):
+                            digest = self.file_cacher.put_file_from_path(
+                                os.path.join(task_path, "sol", other_filename),
+                                "Stub %s for task %s" % (other_filename, name))
+                            args["managers"] += [
+                                Manager(other_filename, digest)]
                     break
 
             # Otherwise, the task type is Batch

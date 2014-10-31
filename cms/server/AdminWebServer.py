@@ -7,6 +7,7 @@
 # Copyright © 2010-2012 Matteo Boscariol <boscarim@hotmail.com>
 # Copyright © 2012-2014 Luca Wehrstedt <luca.wehrstedt@gmail.com>
 # Copyright © 2014 Artem Iglikov <artem.iglikov@gmail.com>
+# Copyright © 2014 Fabian Gundlach <320pointsguy@gmail.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -260,8 +261,8 @@ class BaseHandler(CommonRequestHandler):
                 kwargs["exc_info"][0] != tornado.web.HTTPError:
             exc_info = kwargs["exc_info"]
             logger.error(
-                "Uncaught exception (%r) while processing a request: %s" %
-                (exc_info[1], ''.join(traceback.format_exception(*exc_info))))
+                "Uncaught exception (%r) while processing a request: %s",
+                exc_info[1], ''.join(traceback.format_exception(*exc_info)))
 
         # Most of the handlers raise a 404 HTTP error before r_params
         # is defined. If r_params is not defined we try to define it
@@ -475,8 +476,12 @@ class AdminWebServer(WebService):
             ServiceCoord("EvaluationService", 0))
         self.scoring_service = self.connect_to(
             ServiceCoord("ScoringService", 0))
+
+        ranking_enabled = len(config.rankings) > 0
         self.proxy_service = self.connect_to(
-            ServiceCoord("ProxyService", 0))
+            ServiceCoord("ProxyService", 0),
+            must_be_present=ranking_enabled)
+
         self.resource_services = []
         for i in xrange(get_service_shards("ResourceService")):
             self.resource_services.append(self.connect_to(
@@ -1038,7 +1043,7 @@ class AddDatasetHandler(BaseHandler):
             self.sql_session.add(dataset)
 
         except Exception as error:
-            logger.warning("Invalid field: %s" % (traceback.format_exc()))
+            logger.warning("Invalid field.", exc_info=True)
             self.application.service.add_notification(
                 make_datetime(), "Invalid field(s)", repr(error))
             self.redirect("/add_dataset/%s/%s" % (task_id, dataset_id_to_copy))
@@ -1352,14 +1357,14 @@ class AddTestcasesHandler(BaseHandler):
                     match = input_re.match(filename)
                     if match:
                         codename = match.group(1)
-                        if not codename in tests:
+                        if codename not in tests:
                             tests[codename] = [None, None]
                         tests[codename][0] = filename
                     else:
                         match = output_re.match(filename)
                         if match:
                             codename = match.group(1)
-                            if not codename in tests:
+                            if codename not in tests:
                                 tests[codename] = [None, None]
                             tests[codename][1] = filename
 
@@ -1429,7 +1434,7 @@ class AddTestcasesHandler(BaseHandler):
                             "")
                         self.redirect("/add_testcases/%s" % dataset_id)
                         return
-                    if not codename in overwritten_tc:
+                    if codename not in overwritten_tc:
                         added_tc.append(codename)
         except zipfile.BadZipfile:
             self.application.service.add_notification(
@@ -1763,6 +1768,7 @@ class UserViewHandler(BaseHandler):
 
             self.get_string(attrs, "timezone", empty=None)
             self.get_datetime(attrs, "starting_time")
+            self.get_timedelta_sec(attrs, "delay_time")
             self.get_timedelta_sec(attrs, "extra_time")
 
             self.get_bool(attrs, "hidden")
@@ -1803,6 +1809,7 @@ class AddUserHandler(SimpleContestHandler("add_user.html")):
 
             self.get_string(attrs, "timezone", empty=None)
             self.get_datetime(attrs, "starting_time")
+            self.get_timedelta_sec(attrs, "delay_time")
             self.get_timedelta_sec(attrs, "extra_time")
 
             self.get_bool(attrs, "hidden")
@@ -1875,6 +1882,32 @@ class SubmissionFileHandler(FileHandler):
         self.fetch(digest, "text/plain", real_filename)
 
 
+class SubmissionCommentHandler(BaseHandler):
+    """Called when the admin comments on a submission.
+
+    """
+    def post(self, submission_id, dataset_id=None):
+        submission = self.safe_get_item(Submission, submission_id)
+
+        try:
+            attrs = {"comment": submission.comment}
+            self.get_string(attrs, "comment")
+            submission.set_attrs(attrs)
+
+        except Exception as error:
+            self.application.service.add_notification(
+                make_datetime(), "Invalid field(s)", repr(error))
+
+        else:
+            try_commit(self.sql_session, self)
+
+        if dataset_id is None:
+            self.redirect("/submission/%s" % submission_id)
+        else:
+            self.redirect("/submission/%s/%s" % (submission_id,
+                                                 dataset_id))
+
+
 class QuestionsHandler(BaseHandler):
     """Page to see and send messages to all the contestants.
 
@@ -1915,8 +1948,8 @@ class QuestionReplyHandler(BaseHandler):
         question.reply_timestamp = make_datetime()
 
         if try_commit(self.sql_session, self):
-            logger.info("Reply sent to user %s for question with id %s." %
-                        (question.user.username, question_id))
+            logger.info("Reply sent to user %s for question with id %s.",
+                        question.user.username, question_id)
 
         self.redirect(ref)
 
@@ -1938,9 +1971,9 @@ class QuestionIgnoreHandler(BaseHandler):
         # Commit the change.
         question.ignored = should_ignore
         if try_commit(self.sql_session, self):
-            logger.info("Question '%s' by user %s %s" %
-                        (question.subject, question.user.username,
-                         ["unignored", "ignored"][should_ignore]))
+            logger.info("Question '%s' by user %s %s",
+                        question.subject, question.user.username,
+                        ["unignored", "ignored"][should_ignore])
 
         self.redirect(ref)
 
@@ -1960,8 +1993,7 @@ class MessageHandler(BaseHandler):
                           user=user)
         self.sql_session.add(message)
         if try_commit(self.sql_session, self):
-            logger.info("Message submitted to user %s."
-                        % user.username)
+            logger.info("Message submitted to user %s.", user.username)
 
         self.redirect("/user/%s" % user_id)
 
@@ -2042,6 +2074,7 @@ _aws_handlers = [
     (r"/remove_announcement/([0-9]+)", RemoveAnnouncementHandler),
     (r"/submission/([0-9]+)(?:/([0-9]+))?", SubmissionViewHandler),
     (r"/submission_file/([0-9]+)", SubmissionFileHandler),
+    (r"/submission_comment/([0-9]+)(?:/([0-9]+))?", SubmissionCommentHandler),
     (r"/file/([a-f0-9]+)/([a-zA-Z0-9_.-]+)", FileFromDigestHandler),
     (r"/message/([0-9]+)", MessageHandler),
     (r"/question/([0-9]+)", QuestionReplyHandler),

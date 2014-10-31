@@ -242,7 +242,7 @@ class DBBackend(FileCacherBackend):
                 # Check digest uniqueness
                 if fso is not None:
                     logger.debug("File %s already stored on database, not "
-                                 "sending it again." % digest)
+                                 "sending it again.", digest)
                     session.rollback()
                     return None
 
@@ -254,7 +254,7 @@ class DBBackend(FileCacherBackend):
 
                     session.add(fso)
 
-                    logger.debug("File %s stored on the database." % digest)
+                    logger.debug("File %s stored on the database.", digest)
 
                     # FIXME There is a remote possibility that someone
                     # will try to access this file, believing it has
@@ -268,7 +268,7 @@ class DBBackend(FileCacherBackend):
                     return lobject
 
         except IntegrityError:
-            logger.warning("File %s caused an IntegrityError, ignoring..." %
+            logger.warning("File %s caused an IntegrityError, ignoring...",
                            digest)
 
     def describe(self, digest):
@@ -319,8 +319,8 @@ class DBBackend(FileCacherBackend):
         This implementation also accepts an additional (and optional)
         parameter: a SQLAlchemy session to use to query the database.
 
-        session (Session): the session to use; if not given a temporary
-            one will be created and used.
+        session (Session|None): the session to use; if not given a
+            temporary one will be created and used.
 
         """
         def _list(session):
@@ -390,13 +390,15 @@ class FileCacher(object):
         By default the database-powered backend will be used, but this
         can be changed using the parameters.
 
-        service (Service): the service we are running for. Only used to
-            determine the location of the file-system cache (and to
-            provide the shard number to the Sandbox... sigh!).
-        path (string): if specified, back the FileCacher with a file
-            system-based storage instead of the default database-based
-            one. The specified directory will be used as root for the
-            storage and it will be created if it doesn't exist.
+        service (Service|None): the service we are running for. Only
+            used if present to determine the location of the
+            file-system cache (and to provide the shard number to the
+            Sandbox... sigh!).
+        path (string|None): if specified, back the FileCacher with a
+            file system-based storage instead of the default
+            database-based one. The specified directory will be used
+            as root for the storage and it will be created if it
+            doesn't exist.
         null (bool): if True, back the FileCacher with a NullBackend,
             that just discards every file it receives. This setting
             takes priority over path.
@@ -425,21 +427,26 @@ class FileCacher(object):
             logger.error("Cannot create necessary directories.")
             raise RuntimeError("Cannot create necessary directories.")
 
-    def load(self, digest):
+    def load(self, digest, if_needed=False):
         """Load the file with the given digest into the cache.
 
         Ask the backend to provide the file and, if it's available,
         copy its content into the file-system cache.
 
         digest (unicode): the digest of the file to load.
+        if_needed (bool): only load the file if it is not present in
+            the local cache.
 
         raise (KeyError): if the backend cannot find the file.
 
         """
+        cache_file_path = os.path.join(self.file_dir, digest)
+        if if_needed and os.path.exists(cache_file_path):
+            return
+
         ftmp_handle, temp_file_path = tempfile.mkstemp(dir=self.temp_dir,
                                                        text=False)
         ftmp = os.fdopen(ftmp_handle, 'w')
-        cache_file_path = os.path.join(self.file_dir, digest)
 
         fobj = self.backend.get_file(digest)
 
@@ -475,15 +482,15 @@ class FileCacher(object):
         """
         cache_file_path = os.path.join(self.file_dir, digest)
 
-        logger.debug("Getting file %s." % digest)
+        logger.debug("Getting file %s.", digest)
 
         if not os.path.exists(cache_file_path):
             logger.debug("File %s not in cache, downloading "
-                         "from database." % digest)
+                         "from database.", digest)
 
             self.load(digest)
 
-            logger.debug("File %s downloaded." % digest)
+            logger.debug("File %s downloaded.", digest)
 
         return io.open(cache_file_path, 'rb')
 
@@ -604,7 +611,7 @@ class FileCacher(object):
             digest = hasher.hexdigest().decode("ascii")
             dst.flush()
 
-            logger.debug("File has digest %s." % digest)
+            logger.debug("File has digest %s.", digest)
 
             cache_file_path = os.path.join(self.file_dir, digest)
 
@@ -755,8 +762,8 @@ class FileCacher(object):
                 fobj.close()
             computed_digest = hasher.hexdigest().decode("ascii")
             if digest != computed_digest:
-                logger.error("File with hash %s actually has hash %s" %
-                             (digest, computed_digest))
+                logger.error("File with hash %s actually has hash %s",
+                             digest, computed_digest)
                 if delete:
                     self.delete(digest)
                 clean = False

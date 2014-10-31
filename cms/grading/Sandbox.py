@@ -40,6 +40,7 @@ from gevent import subprocess
 
 from cms import config
 from cms.io.GeventUtils import copyfileobj, rmtree
+from cmscommon.commands import pretty_print_cmdline
 from cmscommon.datetime import monotonic_time
 
 
@@ -64,21 +65,6 @@ def with_log(func):
         return func(self, *args, **kwargs)
 
     return newfunc
-
-
-def pretty_print_cmdline(cmdline):
-    """Pretty print a command line.
-
-    Take a command line suitable to be passed to a Popen-like call and
-    returns a string that represents it in a way that preserves the
-    structure of arguments and can be passed to bash as is.
-
-    More precisely, delimitate every item of the command line with
-    single apstrophes and join all the arguments separating them with
-    spaces.
-
-    """
-    return " ".join(["'%s'" % (x.replace("'", "'\"'\"'")) for x in cmdline])
 
 
 def wait_without_std(procs):
@@ -208,11 +194,11 @@ class SandboxBase(object):
     EXIT_SYSCALL = 'syscall'
     EXIT_NONZERO_RETURN = 'nonzero return'
 
-    def __init__(self, file_cacher=None):
+    def __init__(self, file_cacher):
         """Initialization.
 
         file_cacher (FileCacher): an instance of the FileCacher class
-            (to interact with FS).
+            (to interact with FS), if the sandbox needs it.
 
         """
         self.file_cacher = file_cacher
@@ -275,6 +261,7 @@ class SandboxBase(object):
         system path.
 
         path (string): relative path of the file inside the sandbox.
+
         return (string): the absolute path.
 
         """
@@ -286,13 +273,14 @@ class SandboxBase(object):
 
         path (string): relative path of the file inside the sandbox.
         executable (bool): to set permissions.
+
         return (file): the file opened in write binary mode.
 
         """
         if executable:
-            logger.debug("Creating executable file %s in sandbox." % path)
+            logger.debug("Creating executable file %s in sandbox.", path)
         else:
-            logger.debug("Creating plain file %s in sandbox." % path)
+            logger.debug("Creating plain file %s in sandbox.", path)
         real_path = self.relative_path(path)
         file_ = io.open(real_path, "wb")
         mod = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IWUSR
@@ -342,13 +330,13 @@ class SandboxBase(object):
         """Open a file in the sandbox given its relative path.
 
         path (string): relative path of the file inside the sandbox.
-        trunc_len (int): if None, does nothing; otherwise, before
-                         returning truncate it at the specified length.
+        trunc_len (int|None): if None, does nothing; otherwise, before
+            returning truncate it at the specified length.
 
         return (file): the file opened in read binary mode.
 
         """
-        logger.debug("Retrieving file %s from sandbox" % (path))
+        logger.debug("Retrieving file %s from sandbox.", path)
         real_path = self.relative_path(path)
         file_ = io.open(real_path, "rb")
         if trunc_len is not None:
@@ -361,7 +349,8 @@ class SandboxBase(object):
 
         path (string): relative path of the file inside the sandbox.
         maxlen (int): maximum number of bytes to read, or None if no
-                      limit.
+            limit.
+
         return (string): the content of the file up to maxlen bytes.
 
         """
@@ -383,8 +372,8 @@ class SandboxBase(object):
 
         path (string): relative path of the file inside the sandbox.
         description (string): the description for FS.
-        trunc_len (int): if None, does nothing; otherwise, before
-                         returning truncate it at the specified length.
+        trunc_len (int|None): if None, does nothing; otherwise, before
+            returning truncate it at the specified length.
 
         return (string): the digest of the file.
 
@@ -398,6 +387,7 @@ class SandboxBase(object):
         """Return the stats of a file in the sandbox.
 
         path (string): relative path of the file inside the sandbox.
+
         return (stat_result): the stat results.
 
         """
@@ -407,6 +397,7 @@ class SandboxBase(object):
         """Return if a file exists in the sandbox.
 
         path (string): relative path of the file inside the sandbox.
+
         return (bool): if the file exists.
 
         """
@@ -449,8 +440,7 @@ class StupidSandbox(SandboxBase):
         self.popen_time = None
         self.exec_time = None
 
-        logger.debug("Sandbox in `%s' created, using stupid box." %
-                     (self.path))
+        logger.debug("Sandbox in `%s' created, using stupid box.", self.path)
 
         # Box parameters
         self.chdir = self.path
@@ -575,19 +565,20 @@ class StupidSandbox(SandboxBase):
 
         command ([string]): executable filename and arguments of the
             command.
-        stdin (file): a file descriptor/object or None.
-        stdout (file): a file descriptor/object or None.
-        stderr (file): a file descriptor/object or None.
-        preexec_fn (callable): to be called just before execve() or
-                               None.
+        stdin (file|None): a file descriptor/object or None.
+        stdout (file|None): a file descriptor/object or None.
+        stderr (file|None): a file descriptor/object or None.
+        preexec_fn (function|None): to be called just before execve()
+            or None.
         close_fds (bool): close all file descriptor before executing.
+
         return (object): popen object.
 
         """
         self.exec_time = None
         self.exec_num += 1
         self.log = None
-        logger.debug("Executing program in sandbox with command: %s" %
+        logger.debug("Executing program in sandbox with command: `%s'.",
                      " ".join(command))
         with io.open(self.relative_path(self.cmd_file), 'at') as commands:
             commands.write("%s\n" % (pretty_print_cmdline(command)))
@@ -597,7 +588,7 @@ class StupidSandbox(SandboxBase):
                                  preexec_fn=preexec_fn, close_fds=close_fds)
         except OSError:
             logger.critical("Failed to execute program in sandbox "
-                            "with command: %s" %
+                            "with command: `%s'.",
                             " ".join(command), exc_info=True)
             raise
 
@@ -729,7 +720,7 @@ class StupidSandbox(SandboxBase):
         """Delete the directory where the sandbox operated.
 
         """
-        logger.debug("Deleting sandbox in %s" % self.path)
+        logger.debug("Deleting sandbox in %s.", self.path)
 
         # Delete the working directory.
         rmtree(self.path)
@@ -751,6 +742,8 @@ class IsolateSandbox(SandboxBase):
        command number N.
 
     """
+    next_id = 0
+
     def __init__(self, file_cacher=None, temp_dir=None):
         """Initialization.
 
@@ -759,15 +752,19 @@ class IsolateSandbox(SandboxBase):
         """
         SandboxBase.__init__(self, file_cacher)
 
-        # Get our shard number, to use as a unique identifier for the
-        # sandbox on this machine. FIXME This is the only use of
-        # FileCacher.service, and it's an improper use! Avoid it!
+        # Isolate only accepts ids between 0 and 99. We assign the
+        # range [(shard+1)*10, (shard+2)*10) to each Worker and keep
+        # the range [0, 10) for other uses (command-line scripts like
+        # cmsMake or direct console users of isolate). Inside each
+        # range ids are assigned sequentially, with a wrap-around.
+        # FIXME This is the only use of FileCacher.service, and it's an
+        # improper use! Avoid it!
         if file_cacher is not None and file_cacher.service is not None:
-            # We add 1 to avoid conflicting with console users of the
-            # sandbox who use the default box id of 0.
-            box_id = file_cacher.service.shard + 1
+            box_id = ((file_cacher.service.shard + 1) * 10
+                      + (IsolateSandbox.next_id % 10)) % 100
         else:
-            box_id = 0
+            box_id = IsolateSandbox.next_id % 10
+        IsolateSandbox.next_id += 1
 
         # We create a directory "tmp" inside the outer temporary directory,
         # because the sandbox will bind-mount the inner one. The sandbox also
@@ -791,8 +788,8 @@ class IsolateSandbox(SandboxBase):
         self.cmd_file = "commands.log"
         self.log = None
         self.exec_num = -1
-        logger.debug("Sandbox in `%s' created, using box `%s'." %
-                     (self.path, self.box_exec))
+        logger.debug("Sandbox in `%s' created, using box `%s'.",
+                     self.path, self.box_exec)
 
         # Default parameters for isolate
         self.box_id = box_id           # -b
@@ -1105,6 +1102,7 @@ class IsolateSandbox(SandboxBase):
         absolute path inside the sandbox.
 
         path (string): relative path of the file inside the sandbox.
+
         return (string): the absolute path of the file inside the sandbox.
 
         """
@@ -1119,6 +1117,7 @@ class IsolateSandbox(SandboxBase):
 
         command (list): executable filename and arguments of the
                         command.
+
         return (bool): True if the sandbox didn't report errors
                        (caused by the sandbox itself), False otherwise
 
@@ -1126,7 +1125,7 @@ class IsolateSandbox(SandboxBase):
         self.exec_num += 1
         self.log = None
         args = [self.box_exec] + self.build_box_options() + ["--"] + command
-        logger.debug("Executing program in sandbox with command: %s" %
+        logger.debug("Executing program in sandbox with command: `%s'.",
                      pretty_print_cmdline(args))
         with io.open(self.relative_path(self.cmd_file), 'at') as commands:
             commands.write("%s\n" % (pretty_print_cmdline(args)))
@@ -1152,7 +1151,7 @@ class IsolateSandbox(SandboxBase):
         self.exec_num += 1
         self.log = None
         args = [self.box_exec] + self.build_box_options() + ["--"] + command
-        logger.debug("Executing program in sandbox with command: %s" %
+        logger.debug("Executing program in sandbox with command: `%s'.",
                      pretty_print_cmdline(args))
         with io.open(self.relative_path(self.cmd_file), 'at') as commands:
             commands.write("%s\n" % (pretty_print_cmdline(args)))
@@ -1162,8 +1161,8 @@ class IsolateSandbox(SandboxBase):
                                  close_fds=close_fds)
         except OSError:
             logger.critical("Failed to execute program in sandbox "
-                            "with command: %s" %
-                            pretty_print_cmdline(args), exc_info=True)
+                            "with command: %s", pretty_print_cmdline(args),
+                            exc_info=True)
             raise
 
         return p
@@ -1221,7 +1220,7 @@ class IsolateSandbox(SandboxBase):
         """Delete the directory where the sandbox operated.
 
         """
-        logger.debug("Deleting sandbox in %s" % self.path)
+        logger.debug("Deleting sandbox in %s.", self.path)
 
         # Tell isolate to cleanup the sandbox.
         box_cmd = [self.box_exec] + (["--cg"] if self.cgroup else []) \

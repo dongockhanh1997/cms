@@ -40,6 +40,11 @@ import gevent.socket
 logger = logging.getLogger(__name__)
 
 
+class ConfigError(Exception):
+    """Exception for critical configuration errors."""
+    pass
+
+
 def mkdir(path):
     """Make a directory without complaining for errors.
 
@@ -176,14 +181,16 @@ def get_service_shards(service):
 
 
 def default_argument_parser(description, cls, ask_contest=None):
-    """Default argument parser for services - in two versions: needing
-    a contest_id, or not.
+    """Default argument parser for services.
+
+    This has two versions, depending on whether the service needs a
+    contest_id, or not.
 
     description (string): description of the service.
     cls (type): service's class.
-    ask_contest (function): None if the service does not require a
-                            contest, otherwise a function that returns
-                            a contest_id (after asking the admins?)
+    ask_contest (function|None): None if the service does not require
+        a contest, otherwise a function that returns a contest_id
+        (after asking the admins?)
 
     return (object): an instance of a service.
 
@@ -204,7 +211,9 @@ def default_argument_parser(description, cls, ask_contest=None):
     try:
         args.shard = get_safe_shard(cls.__name__, args.shard)
     except ValueError:
-        sys.exit(1)
+        raise ConfigError("Couldn't autodetect shard number and "
+                          "no shard specified for service %s, "
+                          "quitting." % (cls.__name__))
 
     if ask_contest is not None:
         if args.contest_id is not None:
